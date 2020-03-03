@@ -172,6 +172,7 @@ def install_docker():
         shell=True)
     run(['curl', '-fsSL', 'get.docker.com', '-o', 'get-docker.sh'])
     run('sh get-docker.sh --mirror Aliyun', shell=True)
+    run(['cp', './sources/docker_daemon.json', '/etc/docker/daemon.json'])
     run('systemctl enable docker && systemctl start docker', shell=True)
     run(['rm', '-f', 'get-docker.sh'])
     run(['docker', 'run', 'hello-world'])
