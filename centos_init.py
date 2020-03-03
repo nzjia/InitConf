@@ -51,7 +51,7 @@ def base_conf():
     print('--> +x rc.local')
 
     # disable SELINUX
-    run(['setenforce', '0'])
+    Popen(['setenforce', '0'])
     simple_replace('/etc/selinux/config', 'SELINUX=enforcing',
                    'SELINUX=disabled')
     print('--> Disable SELINUX')
