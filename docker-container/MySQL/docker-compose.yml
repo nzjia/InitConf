@@ -1,0 +1,21 @@
+version: '3.1'
+services:
+    db:
+        environment:
+            MYSQL_ROOT_PASSWORD: "!QAZ2wsx"
+            TZ: 'Asia/Shanghai'
+        image: mysql
+        command: --default-authentication-plugin=mysql_native_password
+        restart: always
+        volumes:
+            - "./db:/var/lib/mysql"
+            - "./conf/my.cnf:/etc/my.cnf"
+            - "./init:/docker-entrypoint-initdb.d/"
+        ports:
+            - 33060:3306
+
+    adminer:
+        image: adminer
+        restart: always
+        ports:
+            - 33061:8080
