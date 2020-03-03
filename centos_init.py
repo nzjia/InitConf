@@ -175,6 +175,9 @@ def install_docker():
     run('systemctl enable docker && systemctl start docker', shell=True)
     run(['rm', '-f', 'get-docker.sh'])
     run(['docker', 'run', 'hello-world'])
+    # install docker-compose
+    run('curl -L https://github.com/docker/compose/releases/download/1.25.4/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose')
+    run('curl -L https://raw.githubusercontent.com/docker/compose/1.24.1/contrib/completion/bash/docker-compose > /etc/bash_completion.d/docker-compose')
 
 
 def uninstall_docker():
@@ -197,6 +200,7 @@ def uninstall_docker():
                   docker-engine-selinux \
                   docker-engine',
         shell=True)
+    run(['sudo', 'rm', '/usr/local/bin/docker-compose']
 
 
 def item1():
