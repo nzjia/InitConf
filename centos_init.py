@@ -17,12 +17,20 @@ Init Shell only in CentOS 7 x86_64:
     - set yum source
     - sshd_config
 4、App conf:
+
+Issue:
+2、$(yum list installed | grep docker) is None
+3、Command '['curl', '-fsSL', 'get.docker.com', '-o', 'get-docker.sh']' returned non-zero exit status 28
 """
 
 import os
+import sys
 
 from subprocess import check_call as run
+from subprocess import call
 from subprocess import Popen, PIPE
+
+s_log, e_log = [], []
 
 
 def simple_replace(file, source, target):
@@ -30,6 +38,16 @@ def simple_replace(file, source, target):
 
     """
     return run(['sed', '-i', 's/{}/{}/g'.format(source, target), file])
+
+
+def in_file(file, text):
+    """
+    """
+    with open(file) as fp:
+        for c in fp:
+            if text in c:
+                return True
+    return False
 
 
 def check_root():
@@ -48,24 +66,24 @@ def base_conf():
 
     # +x rc.local
     run(['chmod', '+x', '/etc/rc.d/rc.local'])
-    print('--> +x rc.local')
+    s_log.append('--> +x rc.local')
 
     # disable SELINUX
     Popen(['setenforce', '0'])
     simple_replace('/etc/selinux/config', 'SELINUX=enforcing',
                    'SELINUX=disabled')
-    print('--> Disable SELINUX')
+    s_log.append('--> Disable SELINUX')
 
     # disable firewalld、postfix
     run('systemctl stop firewalld && systemctl disable firewalld', shell=True)
     run('systemctl stop postfix && systemctl disable postfix', shell=True)
-    print('--> Disable firewalld、postfix')
+    s_log.append('--> Disable firewalld、postfix')
 
     # enable ipv4 forward
     run("sed -ie '/net.ipv4.ip_forward = [01]/d' /etc/sysctl.conf", shell=True)
     run("echo -e 'net.ipv4.ip_forward = 1' >> /etc/sysctl.conf", shell=True)
     run(['/sbin/sysctl', '-p'])
-    print('--> Add ipv4 forward')
+    s_log.append('--> Add ipv4 forward')
 
 
 def yum_conf():
@@ -73,7 +91,7 @@ def yum_conf():
 
     """
     # alter yum source
-    print("--> Alter ali yum source.")
+    flag = False
     run([
         'mv', '/etc/yum.repos.d/CentOS-Base.repo',
         '/etc/yum.repos.d/CentOS-Base.repo.bak'
@@ -89,17 +107,20 @@ def yum_conf():
             '/etc/yum.repos.d/CentOS-Base.repo'
         ],
             stdout=PIPE)
-        print(p.communicate()[1])
+        e_log.append('--> Alter Base.repo timeout.')
+        e_log.append(p.communicate()[1])
     p = Popen([
-        'curl', '-o', '/etc/yum.repos.d/epel.repo',
+        'curl', '-o', '/etc/yum.repos.d/CentOS-Epel.repo',
         'http://mirrors.aliyun.com/repo/epel-7.repo'
     ],
               stdout=PIPE)
     if p.communicate()[1]:
-        print(p.communicate()[1])
+        e_log.append('--> Alter Epel.repo timeout.')
+        e_log.append(p.communicate()[1])
     p = Popen(['yum', 'makecache'], stdout=PIPE)
     if p.communicate()[1]:
-        print(p.communicate()[1])
+        e_log.append('--> Yum makecache error.')
+        e_log.append(p.communicate()[1])
 
     # install base tools
     p = Popen(
@@ -107,9 +128,10 @@ def yum_conf():
         shell=True,
         stdout=PIPE)
     if p.communicate()[1]:
-        print(p.communicate()[1])
+        e_log.append('--> Install base tools error.')
+        e_log.append(p.communicate()[1])
     else:
-        print('--> Install base tools success.')
+        s_log.append('--> Install base tools success.')
 
 
 def set_host(hostname):
@@ -118,17 +140,20 @@ def set_host(hostname):
     """
     if hostname:
         run(['hostnamectl', 'set-hostname', hostname])
-        print('--> Hostname is set to {}'.format(hostname))
+        s_log.append('--> Hostname is set to {}'.format(hostname))
 
 
 def add_user(user):
     """add user with sudo
 
     """
+    if in_file('/etc/passwd', user):
+        e_log.append('--> User: {} duplicate.'.format(user))
+        return
     run(['useradd', user])
     run("echo '!QAZ2wsx' | passwd --stdin {}".format(user), shell=True)
     run(['usermod', '-aG', 'wheel', user])
-    print("--> User created !!!\nuser: {}\npasswd: {}".format(
+    s_log.append("--> User created !!!\nuser: {}\npasswd: {}".format(
         user, '!QAZ2wsx'))
 
 
@@ -146,20 +171,27 @@ def ssh_conf():
     simple_replace('/etc/ssh/sshd_config', '#PubkeyAuthentication yes',
                    'PubkeyAuthentication yes')
     run(['systemctl', 'restart', 'sshd'])
-    print("Increase sshd service security")
+    s_log.append("--> Increase sshd service security")
 
 
 def install_py3():
     """Install pyenv
 
     """
-    run(['bash', 'py3_install.sh'])
+    if sys.version_info.major > 2 or not call(['which', 'python3']):
+        e_log.append('--> Already install python3.')
+    else:
+        run(['bash', 'py3_install.sh'])
 
 
-def install_docker():
+def install_docker(user):
     """Install docker
 
     """
+    if not call(['docker', '-v']):
+        e_log.append('--> Already install docker.')
+        return 1
+
     run('yum remove -y docker docker-client \
                   docker-client-latest \
                   docker-common \
@@ -170,28 +202,55 @@ def install_docker():
                   docker-engine-selinux \
                   docker-engine',
         shell=True)
-    run(['curl', '-fsSL', 'get.docker.com', '-o', 'get-docker.sh'])
-    run('sh get-docker.sh --mirror Aliyun', shell=True)
+    # curl -fsSL https://get.docker.com | bash -s docker --mirror Aliyun
+
+    # run(['curl', '-fsSL', 'get.docker.com', '-o', 'get-docker.sh'])
+    # run('sh get-docker.sh --mirror Aliyun', shell=True)
+
+    p = Popen(
+        'yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo && yum makecache fast && sudo yum -y install docker-ce',
+        shell=True)
+    if p.communicate()[1]:
+        e_log.append('--> Install docker error.')
+        e_log.append(p.communicate()[1])
+        return False
+
+    run('systemctl enable docker && systemctl start docker', shell=True)
     run(['cp', './sources/docker_daemon.json', '/etc/docker/daemon.json'])
-    run('systemctl daemon-reload && systemctl enable docker && systemctl start docker', shell=True)
-    run(['rm', '-f', 'get-docker.sh'])
-    run(['docker', 'run', 'hello-world'])
+    run(['usermod', '-aG', 'docker', user])
+    run('systemctl daemon-reload && systemctl restart docker', shell=True)
+
+    # run(['rm', '-f', 'get-docker.sh'])
+    p = Popen(['docker', 'run', 'hello-world'])
+    if p.communicate()[1]:
+        e_log.append(p.communicate()[1])
     # install docker-compose
-    run('curl -L https://github.com/docker/compose/releases/download/1.25.4/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose')
-    run('curl -L https://raw.githubusercontent.com/docker/compose/1.24.1/contrib/completion/bash/docker-compose > /etc/bash_completion.d/docker-compose')
+    p = Popen(
+        'curl -L https://github.com/docker/compose/releases/download/1.25.4/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose',
+        shell=True)
+    if p.communicate()[1]:
+        e_log.append('--> Install docker-compose error.')
+        e_log.append(p.communicate()[1])
+    p = Popen(
+        'curl -L https://raw.githubusercontent.com/docker/compose/1.24.1/contrib/completion/bash/docker-compose > /etc/bash_completion.d/docker-compose',
+        shell=True)
+    if p.communicate()[1]:
+        e_log.append('--> Install bash_completion error.')
+        e_log.append(p.communicate()[1])
+    s_log.append('--> Install docker success.')
 
 
 def uninstall_docker():
     """Uninstall docker
 
     """
-    run('yum remove -y $(yum list installed | grep docker)', shell=True)
+    Popen('yum remove -y $(yum list installed | grep docker)', shell=True)
     # remove image container
-    run(['rm', '-rf', '/var/lib/docker'])
+    Popen(['rm', '-rf', '/var/lib/docker'])
     # remove config
-    run(['rm', '-rf', '/etc/docker'])
+    Popen(['rm', '-rf', '/etc/docker'])
     # remove old
-    run('yum remove -y docker docker-client \
+    Popen('yum remove -y docker docker-client \
                   docker-client-latest \
                   docker-common \
                   docker-latest \
@@ -201,7 +260,7 @@ def uninstall_docker():
                   docker-engine-selinux \
                   docker-engine',
         shell=True)
-    run(['sudo', 'rm', '/usr/local/bin/docker-compose'])
+    Popen(['sudo', 'rm', '/usr/local/bin/docker-compose'])
 
 
 def item1():
@@ -216,7 +275,7 @@ def item1():
     add_user(user)
     ssh_conf()
     install_py3()
-    install_docker()
+    install_docker(user)
 
 
 def item2():
@@ -259,3 +318,7 @@ if __name__ == '__main__':
         print("Select item error.")
         exit(1)
     switch[key]()
+    for item in s_log:
+        print(item)
+    for item in e_log:
+        print(item)
