@@ -184,13 +184,13 @@ def install_py3():
         run(['bash', 'py3_install.sh'])
 
 
-def install_docker(user):
+def install_docker(user=''):
     """Install docker
 
     """
-    if not call(['docker', '-v']):
+    if not call('docker -v', shell=True):
         e_log.append('--> Already install docker.')
-        return 1
+        return 0
 
     run('yum remove -y docker docker-client \
                   docker-client-latest \
@@ -202,10 +202,6 @@ def install_docker(user):
                   docker-engine-selinux \
                   docker-engine',
         shell=True)
-    # curl -fsSL https://get.docker.com | bash -s docker --mirror Aliyun
-
-    # run(['curl', '-fsSL', 'get.docker.com', '-o', 'get-docker.sh'])
-    # run('sh get-docker.sh --mirror Aliyun', shell=True)
 
     p = Popen(
         'yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo && yum makecache fast && sudo yum -y install docker-ce',
@@ -217,7 +213,8 @@ def install_docker(user):
 
     run('systemctl enable docker && systemctl start docker', shell=True)
     run(['cp', './sources/docker_daemon.json', '/etc/docker/daemon.json'])
-    run(['usermod', '-aG', 'docker', user])
+    if user:
+        run(['usermod', '-aG', 'docker', user])
     run('systemctl daemon-reload && systemctl restart docker', shell=True)
 
     # run(['rm', '-f', 'get-docker.sh'])
@@ -259,7 +256,7 @@ def uninstall_docker():
                   docker-selinux \
                   docker-engine-selinux \
                   docker-engine',
-        shell=True)
+          shell=True)
     Popen(['sudo', 'rm', '/usr/local/bin/docker-compose'])
 
 
