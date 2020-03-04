@@ -100,24 +100,24 @@ def yum_conf():
         'curl', '-o', '/etc/yum.repos.d/CentOS-Base.repo',
         'http://mirrors.aliyun.com/repo/Centos-7.repo'
     ],
-              stdout=PIPE)
+              stderr=PIPE)
     if p.communicate()[1]:
         run([
             'mv', '/etc/yum.repos.d/CentOS-Base.repo.bak',
             '/etc/yum.repos.d/CentOS-Base.repo'
-        ],
-            stdout=PIPE)
+        ])
         e_log.append('--> Alter Base.repo timeout.')
         e_log.append(p.communicate()[1])
+    run(['rm', '-f', '*pel.repo'])
     p = Popen([
         'curl', '-o', '/etc/yum.repos.d/CentOS-Epel.repo',
         'http://mirrors.aliyun.com/repo/epel-7.repo'
     ],
-              stdout=PIPE)
+              stderr=PIPE)
     if p.communicate()[1]:
         e_log.append('--> Alter Epel.repo timeout.')
         e_log.append(p.communicate()[1])
-    p = Popen(['yum', 'makecache'], stdout=PIPE)
+    p = Popen(['yum', 'makecache'], stderr=PIPE)
     if p.communicate()[1]:
         e_log.append('--> Yum makecache error.')
         e_log.append(p.communicate()[1])
@@ -126,7 +126,7 @@ def yum_conf():
     p = Popen(
         "yum groupinstall -y 'Development Tools' && yum install -y gcc glibc gcc-c++ make net-tools telnet ntpdate tree wget curl vim mtr bash-completion git yum-utils",
         shell=True,
-        stdout=PIPE)
+        stderr=PIPE)
     if p.communicate()[1]:
         e_log.append('--> Install base tools error.')
         e_log.append(p.communicate()[1])
@@ -190,7 +190,7 @@ def install_docker(user=''):
     """
     if not call('docker -v', shell=True):
         e_log.append('--> Already install docker.')
-        return 0
+        return
 
     run('yum remove -y docker docker-client \
                   docker-client-latest \
@@ -203,34 +203,45 @@ def install_docker(user=''):
                   docker-engine',
         shell=True)
 
-    p = Popen(
-        'yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo && yum makecache fast && sudo yum -y install docker-ce',
-        shell=True)
+    # p = Popen(
+    #     'yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo && yum makecache fast && sudo yum -y install docker-ce',
+    #     stderr=PIPE,
+    #     shell=True)
+    p = Popen('curl -sSL https://get.daocloud.io/docker | sh',
+              shell=True,
+              stderr=PIPE)
     if p.communicate()[1]:
         e_log.append('--> Install docker error.')
         e_log.append(p.communicate()[1])
-        return False
+        return
 
-    run('systemctl enable docker && systemctl start docker', shell=True)
+    run('systemctl daemon-reload && systemctl enable docker && systemctl start docker',
+        shell=True)
+    if not os.path.isdir('/etc/docker'):
+        os.mkdir('/etc/docker')
     run(['cp', './sources/docker_daemon.json', '/etc/docker/daemon.json'])
     if user:
         run(['usermod', '-aG', 'docker', user])
-    run('systemctl daemon-reload && systemctl restart docker', shell=True)
 
-    # run(['rm', '-f', 'get-docker.sh'])
-    p = Popen(['docker', 'run', 'hello-world'])
+    run('systemctl daemon-reload && systemctl enable docker && systemctl start docker',
+        shell=True)
+
+    p = Popen(['docker', 'run', 'hello-world'], stderr=PIPE)
     if p.communicate()[1]:
         e_log.append(p.communicate()[1])
+
     # install docker-compose
     p = Popen(
-        'curl -L https://github.com/docker/compose/releases/download/1.25.4/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose',
-        shell=True)
+        'curl -L https://get.daocloud.io/docker/compose/releases/download/1.25.4/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose',
+        shell=True,
+        stderr=PIPE)
     if p.communicate()[1]:
         e_log.append('--> Install docker-compose error.')
         e_log.append(p.communicate()[1])
     p = Popen(
         'curl -L https://raw.githubusercontent.com/docker/compose/1.24.1/contrib/completion/bash/docker-compose > /etc/bash_completion.d/docker-compose',
-        shell=True)
+        shell=True,
+        stderr=PIPE)
     if p.communicate()[1]:
         e_log.append('--> Install bash_completion error.')
         e_log.append(p.communicate()[1])
