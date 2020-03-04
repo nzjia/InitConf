@@ -101,35 +101,39 @@ def yum_conf():
         'http://mirrors.aliyun.com/repo/Centos-7.repo'
     ],
               stderr=PIPE)
-    if p.communicate()[1]:
+    flag = p.communicate()[1].decode('utf-8')
+    if flag:
         run([
             'mv', '/etc/yum.repos.d/CentOS-Base.repo.bak',
             '/etc/yum.repos.d/CentOS-Base.repo'
         ])
         e_log.append('--> Alter Base.repo timeout.')
-        e_log.append(p.communicate()[1])
+        e_log.append(flag)
     run(['rm', '-f', '*pel.repo'])
     p = Popen([
         'curl', '-o', '/etc/yum.repos.d/CentOS-Epel.repo',
         'http://mirrors.aliyun.com/repo/epel-7.repo'
     ],
               stderr=PIPE)
-    if p.communicate()[1]:
+    flag = p.communicate()[1].decode('utf-8')
+    if flag:
         e_log.append('--> Alter Epel.repo timeout.')
-        e_log.append(p.communicate()[1])
+        e_log.append(flag)
     p = Popen(['yum', 'makecache'], stderr=PIPE)
-    if p.communicate()[1]:
+    flag = p.communicate()[1].decode('utf-8')
+    if flag:
         e_log.append('--> Yum makecache error.')
-        e_log.append(p.communicate()[1])
+        e_log.append(flag)
 
     # install base tools
     p = Popen(
         "yum groupinstall -y 'Development Tools' && yum install -y gcc glibc gcc-c++ make net-tools telnet ntpdate tree wget curl vim mtr bash-completion git yum-utils",
         shell=True,
         stderr=PIPE)
-    if p.communicate()[1]:
+    flag = p.communicate()[1].decode('utf-8')
+    if flag:
         e_log.append('--> Install base tools error.')
-        e_log.append(p.communicate()[1])
+        e_log.append(flag)
     else:
         s_log.append('--> Install base tools success.')
 
@@ -210,9 +214,10 @@ def install_docker(user=''):
     p = Popen('curl -sSL https://get.daocloud.io/docker | sh',
               shell=True,
               stderr=PIPE)
-    if p.communicate()[1]:
+    flag = p.communicate()[1].decode('utf-8')
+    if flag:
         e_log.append('--> Install docker error.')
-        e_log.append(p.communicate()[1])
+        e_log.append(flag)
         return
 
     run('systemctl daemon-reload && systemctl enable docker && systemctl start docker',
@@ -227,24 +232,27 @@ def install_docker(user=''):
         shell=True)
 
     p = Popen(['docker', 'run', 'hello-world'], stderr=PIPE)
-    if p.communicate()[1]:
-        e_log.append(p.communicate()[1])
+    flag = p.communicate()[1].decode('utf-8')
+    if flag:
+        e_log.append(flag)
 
     # install docker-compose
     p = Popen(
         'curl -L https://get.daocloud.io/docker/compose/releases/download/1.25.4/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose',
         shell=True,
         stderr=PIPE)
-    if p.communicate()[1]:
+    flag = p.communicate()[1].decode('utf-8')
+    if flag:
         e_log.append('--> Install docker-compose error.')
-        e_log.append(p.communicate()[1])
+        e_log.append(flag)
     p = Popen(
         'curl -L https://raw.githubusercontent.com/docker/compose/1.24.1/contrib/completion/bash/docker-compose > /etc/bash_completion.d/docker-compose',
         shell=True,
         stderr=PIPE)
-    if p.communicate()[1]:
+    flag = p.communicate()[1].decode('utf-8')
+    if flag:
         e_log.append('--> Install bash_completion error.')
-        e_log.append(p.communicate()[1])
+        e_log.append(flag)
     s_log.append('--> Install docker success.')
 
 
@@ -252,13 +260,13 @@ def uninstall_docker():
     """Uninstall docker
 
     """
-    Popen('yum remove -y $(yum list installed | grep docker)', shell=True)
+    call('yum remove -y $(yum list installed | grep docker)', shell=True)
     # remove image container
-    Popen(['rm', '-rf', '/var/lib/docker'])
+    call(['rm', '-rf', '/var/lib/docker'])
     # remove config
-    Popen(['rm', '-rf', '/etc/docker'])
+    call(['rm', '-rf', '/etc/docker'])
     # remove old
-    Popen('yum remove -y docker docker-client \
+    call('yum remove -y docker docker-client \
                   docker-client-latest \
                   docker-common \
                   docker-latest \
@@ -268,7 +276,8 @@ def uninstall_docker():
                   docker-engine-selinux \
                   docker-engine',
           shell=True)
-    Popen(['sudo', 'rm', '/usr/local/bin/docker-compose'])
+    call(['sudo', 'rm', '/usr/local/bin/docker-compose'])
+    s_log.append('--> Uninstall docker success.')
 
 
 def item1():
