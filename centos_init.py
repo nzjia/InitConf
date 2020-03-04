@@ -124,7 +124,7 @@ def yum_conf():
 
     # install base tools
     p = Popen(
-        "yum groupinstall -y 'Development Tools' && yum install -y gcc glibc gcc-c++ make net-tools telnet ntpdate tree wget curl vim mtr bash-completion git",
+        "yum groupinstall -y 'Development Tools' && yum install -y gcc glibc gcc-c++ make net-tools telnet ntpdate tree wget curl vim mtr bash-completion git yum-utils",
         shell=True,
         stdout=PIPE)
     if p.communicate()[1]:
