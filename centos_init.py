@@ -276,7 +276,11 @@ def uninstall_docker():
                   docker-engine-selinux \
                   docker-engine',
           shell=True)
-    call(['sudo', 'rm', '/usr/local/bin/docker-compose'])
+    if os.path.exists('/usr/local/bin/docker-compose'):
+        os.remove('/usr/local/bin/docker-compose')
+    if os.path.exists('/etc/bash_completion.d/docker-compose'):
+        os.remove('/etc/bash_completion.d/docker-compose')
+
     s_log.append('--> Uninstall docker success.')
 
 
