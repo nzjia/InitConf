@@ -182,10 +182,14 @@ def install_py3():
     """Install pyenv
 
     """
-    if sys.version_info.major > 2 or not call(['which', 'python3']):
+    if sys.version_info.major > 2:
         e_log.append('--> Already install python3.')
-    else:
-        run(['bash', 'py3_install.sh'])
+        return
+    for i in os.listdir('/usr/bin'):
+        if 'python3' in i:
+            e_log.append('--> Already install python3.')
+            return
+    run(['bash', 'py3_install.sh'])
 
 
 def install_docker(user=''):
