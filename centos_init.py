@@ -240,6 +240,7 @@ def install_docker(user=''):
         e_log.append('--> Install docker-compose error.')
         e_log.append(flag)
     run('chmod +x /usr/local/bin/docker-compose', shell=True)
+    s_log.append('--> Install docker-compose success.')
     p = Popen(
         'curl -L https://raw.githubusercontent.com/docker/compose/1.24.1/contrib/completion/bash/docker-compose > /etc/bash_completion.d/docker-compose',
         shell=True,
