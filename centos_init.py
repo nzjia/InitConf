@@ -232,13 +232,14 @@ def install_docker(user=''):
 
     # install docker-compose
     p = Popen(
-        'yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo && yum makecache fast && sudo yum -y install docker-ce',
+        'curl -L https://get.daocloud.io/docker/compose/releases/download/1.25.4/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose',
         shell=True,
         stderr=PIPE)
     flag = p.communicate()[1].decode('utf-8')
     if flag:
         e_log.append('--> Install docker-compose error.')
         e_log.append(flag)
+    run('chmod +x /usr/local/bin/docker-compose', shell=True)
     p = Popen(
         'curl -L https://raw.githubusercontent.com/docker/compose/1.24.1/contrib/completion/bash/docker-compose > /etc/bash_completion.d/docker-compose',
         shell=True,
