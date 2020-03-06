@@ -233,22 +233,12 @@ def install_docker(user=''):
     # install docker-compose
     p = Popen(
         'curl -L https://get.daocloud.io/docker/compose/releases/download/1.25.4/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose',
-        shell=True,
-        stderr=PIPE)
-    flag = p.communicate()[1].decode('utf-8')
-    if flag:
-        e_log.append('--> Install docker-compose error.')
-        e_log.append(flag)
+        shell=True)
     run('chmod +x /usr/local/bin/docker-compose', shell=True)
-    s_log.append('--> Install docker-compose success.')
     p = Popen(
         'curl -L https://raw.githubusercontent.com/docker/compose/1.24.1/contrib/completion/bash/docker-compose > /etc/bash_completion.d/docker-compose',
-        shell=True,
-        stderr=PIPE)
-    flag = p.communicate()[1].decode('utf-8')
-    if flag:
-        e_log.append('--> Install bash_completion error.')
-        e_log.append(flag)
+        shell=True)
+    s_log.append('--> Install docker-compose && completion success.')
     s_log.append('--> Install docker success.')
 
 
@@ -335,7 +325,13 @@ if __name__ == '__main__':
         print("Select item error.")
         exit(1)
     switch[key]()
-    for item in s_log:
-        print(item)
+
+    print('*' * 30)
     for item in e_log:
         print(item)
+    print('*' * 30)
+    for item in s_log:
+        print(item)
+    print('*' * 30)
+    
+
