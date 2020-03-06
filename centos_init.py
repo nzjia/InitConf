@@ -132,10 +132,8 @@ def yum_conf():
         stderr=PIPE)
     flag = p.communicate()[1].decode('utf-8')
     if flag:
-        e_log.append('--> Install base tools error.')
         e_log.append(flag)
-    else:
-        s_log.append('--> Install base tools success.')
+    s_log.append('--> Install base tools success.')
 
 
 def set_host(hostname):
@@ -211,18 +209,12 @@ def install_docker(user=''):
                   docker-engine',
         shell=True)
 
-    # p = Popen(
-    #     'yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo && yum makecache fast && sudo yum -y install docker-ce',
-    #     stderr=PIPE,
-    #     shell=True)
-    p = Popen('curl -sSL https://get.daocloud.io/docker | sh',
+    p = Popen('yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo && yum makecache fast && sudo yum -y install docker-ce',
               shell=True,
               stderr=PIPE)
     flag = p.communicate()[1].decode('utf-8')
     if flag:
-        e_log.append('--> Install docker error.')
         e_log.append(flag)
-        return
 
     run('systemctl daemon-reload && systemctl enable docker && systemctl start docker',
         shell=True)
