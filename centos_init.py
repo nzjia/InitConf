@@ -71,17 +71,14 @@ def base_conf():
                    'SELINUX=disabled')
 
     # disable firewalld、postfix
-    call('systemctl stop firewalld && systemctl disable firewalld',
-               shell=True)
-    call('systemctl stop postfix && systemctl disable postfix',
-               shell=True)
+    call('systemctl stop firewalld && systemctl disable firewalld', shell=True)
+    call('systemctl stop postfix && systemctl disable postfix', shell=True)
     s_log.append('--> Disable firewalld、postfix')
 
     # enable ipv4 forward
     call("sed -ie '/net.ipv4.ip_forward = [01]/d' /etc/sysctl.conf",
-               shell=True)
-    call("echo -e 'net.ipv4.ip_forward = 1' >> /etc/sysctl.conf",
-               shell=True)
+         shell=True)
+    call("echo -e 'net.ipv4.ip_forward = 1' >> /etc/sysctl.conf", shell=True)
     call(['/sbin/sysctl', '-p'])
 
     # check
@@ -181,6 +178,8 @@ def ssh_conf():
     simple_replace('/etc/ssh/sshd_config', 'GSSAPIAuthentication yes',
                    'GSSAPIAuthentication no')
     simple_replace('/etc/ssh/sshd_config', '#UseDNS yes', 'UseDNS no')
+    simple_replace('/etc/ssh/sshd_config', 'PermitRootLogin yes',
+                   '#PermitRootLogin yes')
     simple_replace('/etc/ssh/sshd_config', '#PermitRootLogin yes',
                    'PermitRootLogin no')
     simple_replace('/etc/ssh/sshd_config', '#PermitEmptyPasswords no',
@@ -212,6 +211,7 @@ def install_py3():
     for i in os.listdir('/usr/bin'):
         if 'python3' in i:
             s_log.append('--> Install python3 success.')
+            return
     e_log.append('--> Install python3 E.')
 
 
@@ -232,7 +232,7 @@ def install_docker(user=''):
                   docker-selinux \
                   docker-engine-selinux \
                   docker-engine',
-               shell=True)
+         shell=True)
 
     call(
         'yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo && yum makecache fast && sudo yum -y install docker-ce',
@@ -240,13 +240,12 @@ def install_docker(user=''):
 
     if not os.path.isdir('/etc/docker'):
         os.mkdir('/etc/docker')
-    call(
-        ['cp', './sources/docker_daemon.json', '/etc/docker/daemon.json'])
+    call(['cp', './sources/docker_daemon.json', '/etc/docker/daemon.json'])
     if user:
         check_call(['usermod', '-aG', 'docker', user])
 
     call(
-        'systemctl daemon-reload && systemctl enable docker && systemctl start docker',
+        'systemctl daemon-reload && systemctl enable docker && systemctl restart docker',
         shell=True)
 
     p = call(['docker', 'check_call', 'hello-world'], stderr=PIPE)
@@ -355,10 +354,10 @@ if __name__ == '__main__':
         exit(1)
     switch[key]()
 
-    print('*' * 30)
+    print('Success: ' + '*' * 30)
     for item in e_log:
         print(item)
-    print('*' * 30)
+    print('Error: ' + '*' * 30)
     for item in s_log:
         print(item)
     print('*' * 30)
