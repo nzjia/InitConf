@@ -112,13 +112,14 @@ def yum_conf():
         'curl', '-o', '/etc/yum.repos.d/CentOS-Base.repo',
         'http://mirrors.aliyun.com/repo/Centos-7.repo'
     ])
+    check_call(['chmod', 'a+r', '/etc/yum.repos.d/CentOS-Base.repo'])
 
     check_call(['rm', '-f', '*pel.repo'])
     check_call([
         'curl', '-o', '/etc/yum.repos.d/CentOS-Epel.repo',
         'http://mirrors.aliyun.com/repo/epel-7.repo'
     ])
-    check_call(['chmod', '+x', '/etc/yum.repos.d/CentOS-Epel.repo'])
+    check_call(['chmod', 'a+r', '/etc/yum.repos.d/CentOS-Epel.repo'])
 
     # check
     if in_file('/etc/yum.repos.d/CentOS-Base.repo',
