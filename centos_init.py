@@ -127,7 +127,7 @@ def yum_conf():
 
     # install base tools
     p = Popen(
-        "yum groupinstall -y 'Development Tools' && yum install -y gcc glibc gcc-c++ make net-tools telnet ntpdate tree wget curl vim mtr bash-completion git yum-utils",
+        "yum groupinstall -y 'Development Tools' && yum install -y gcc glibc gcc-c++ make net-tools telnet ntpdate tree wget curl vim mtr bash-completion git yum-utils deltarpm",
         shell=True,
         stderr=PIPE)
     flag = p.communicate()[1].decode('utf-8')
@@ -242,7 +242,7 @@ def install_docker(user=''):
 
     # install docker-compose
     p = Popen(
-        'curl -L https://get.daocloud.io/docker/compose/releases/download/1.25.4/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose',
+        'yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo && yum makecache fast && sudo yum -y install docker-ce',
         shell=True,
         stderr=PIPE)
     flag = p.communicate()[1].decode('utf-8')
