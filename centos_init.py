@@ -216,8 +216,6 @@ def install_docker(user=''):
     if flag:
         e_log.append(flag)
 
-    run('systemctl daemon-reload && systemctl enable docker && systemctl start docker',
-        shell=True)
     if not os.path.isdir('/etc/docker'):
         os.mkdir('/etc/docker')
     run(['cp', './sources/docker_daemon.json', '/etc/docker/daemon.json'])
