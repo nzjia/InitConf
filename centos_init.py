@@ -248,7 +248,7 @@ def install_docker(user=''):
         'systemctl daemon-reload && systemctl enable docker && systemctl restart docker',
         shell=True)
 
-    p = call(['docker', 'check_call', 'hello-world'], stderr=PIPE)
+    p = call(['docker', 'run', 'hello-world'], stderr=PIPE)
     if not p:
         s_log.append('--> Install docker success.')
     else:
@@ -354,10 +354,10 @@ if __name__ == '__main__':
         exit(1)
     switch[key]()
 
-    print('Success: ' + '*' * 30)
+    print('Error: ' + '*' * 30)
     for item in e_log:
         print(item)
-    print('Error: ' + '*' * 30)
+    print('Success: ' + '*' * 30)
     for item in s_log:
         print(item)
     print('*' * 30)
