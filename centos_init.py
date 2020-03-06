@@ -231,11 +231,11 @@ def install_docker(user=''):
         e_log.append(flag)
 
     # install docker-compose
-    p = Popen(
+    run(
         'curl -L https://get.daocloud.io/docker/compose/releases/download/1.25.4/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose',
         shell=True)
     run('chmod +x /usr/local/bin/docker-compose', shell=True)
-    p = Popen(
+    run(
         'curl -L https://raw.githubusercontent.com/docker/compose/1.24.1/contrib/completion/bash/docker-compose > /etc/bash_completion.d/docker-compose',
         shell=True)
     s_log.append('--> Install docker-compose && completion success.')
