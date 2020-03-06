@@ -26,9 +26,7 @@ Issue:
 import os
 import sys
 
-from subprocess import check_call as run
-from subprocess import call
-from subprocess import Popen, PIPE
+from subprocess import call, check_call, Popen, PIPE
 
 s_log, e_log = [], []
 
@@ -37,7 +35,7 @@ def simple_replace(file, source, target):
     """simple replace use sed.
 
     """
-    return run(['sed', '-i', 's/{}/{}/g'.format(source, target), file])
+    return check_call(['sed', '-i', 's/{}/{}/g'.format(source, target), file])
 
 
 def in_file(file, text):
@@ -65,25 +63,43 @@ def base_conf():
     """
 
     # +x rc.local
-    run(['chmod', '+x', '/etc/rc.d/rc.local'])
-    s_log.append('--> +x rc.local')
+    check_call(['chmod', '+x', '/etc/rc.d/rc.local'])
 
     # disable SELINUX
-    Popen(['setenforce', '0'])
+    check_call(['setenforce', '0'])
     simple_replace('/etc/selinux/config', 'SELINUX=enforcing',
                    'SELINUX=disabled')
-    s_log.append('--> Disable SELINUX')
 
     # disable firewalld、postfix
-    run('systemctl stop firewalld && systemctl disable firewalld', shell=True)
-    run('systemctl stop postfix && systemctl disable postfix', shell=True)
+    check_call('systemctl stop firewalld && systemctl disable firewalld',
+               shell=True)
+    check_call('systemctl stop postfix && systemctl disable postfix',
+               shell=True)
     s_log.append('--> Disable firewalld、postfix')
 
     # enable ipv4 forward
-    run("sed -ie '/net.ipv4.ip_forward = [01]/d' /etc/sysctl.conf", shell=True)
-    run("echo -e 'net.ipv4.ip_forward = 1' >> /etc/sysctl.conf", shell=True)
-    run(['/sbin/sysctl', '-p'])
-    s_log.append('--> Add ipv4 forward')
+    check_call("sed -ie '/net.ipv4.ip_forward = [01]/d' /etc/sysctl.conf",
+               shell=True)
+    check_call("echo -e 'net.ipv4.ip_forward = 1' >> /etc/sysctl.conf",
+               shell=True)
+    check_call(['/sbin/sysctl', '-p'])
+
+    # check
+    if oct(os.stat('/etc/rc.d/rc.local').st_mode)[-1] in '751':
+        s_log.append('--> +x rc.local')
+    else:
+        e_log.append('--> +x re.local E.')
+    p = Popen(['getenforce'], stdout=PIPE, stderr=PIPE)
+    flag = p.communicate()
+    if flag[0].decode('utf-8') == 'Disabled\n':
+        s_log.append('--> Disable SELINUX')
+    else:
+        e_log.append('--> Disable SELINUX E. {}'.format(
+            flag[1].decode('utf-8')))
+    if in_file('/etc/sysctl.conf', 'net.ipv4.ip_forward = 1'):
+        s_log.append('--> Add ipv4 forward')
+    else:
+        e_log.append('--> Add ipv4 forward E.')
 
 
 def yum_conf():
@@ -91,48 +107,41 @@ def yum_conf():
 
     """
     # alter yum source
-    flag = False
-    run([
+    check_call([
         'mv', '/etc/yum.repos.d/CentOS-Base.repo',
         '/etc/yum.repos.d/CentOS-Base.repo.bak'
     ])
-    p = Popen([
+    check_call([
         'curl', '-o', '/etc/yum.repos.d/CentOS-Base.repo',
         'http://mirrors.aliyun.com/repo/Centos-7.repo'
-    ],
-              stderr=PIPE)
-    flag = p.communicate()[1].decode('utf-8')
-    if flag:
-        run([
-            'mv', '/etc/yum.repos.d/CentOS-Base.repo.bak',
-            '/etc/yum.repos.d/CentOS-Base.repo'
-        ])
-        e_log.append('--> Alter Base.repo timeout.')
-        e_log.append(flag)
-    run(['rm', '-f', '*pel.repo'])
-    p = Popen([
+    ])
+
+    check_call(['rm', '-f', '*pel.repo'])
+    check_call([
         'curl', '-o', '/etc/yum.repos.d/CentOS-Epel.repo',
         'http://mirrors.aliyun.com/repo/epel-7.repo'
-    ],
-              stderr=PIPE)
-    flag = p.communicate()[1].decode('utf-8')
-    if flag:
-        e_log.append('--> Alter Epel.repo timeout.')
-        e_log.append(flag)
-    p = Popen(['yum', 'makecache'], stderr=PIPE)
-    flag = p.communicate()[1].decode('utf-8')
-    if flag:
-        e_log.append('--> Yum makecache error.')
-        e_log.append(flag)
+    ])
+    check_call(['chmod', '+x', '/etc/yum.repos.d/CentOS-Epel.repo'])
+
+    # check
+    if in_file('/etc/yum.repos.d/CentOS-Base.repo',
+               'mirrors.aliyun.com') and in_file(
+                   '/etc/yum.repos.d/CentOS-Epel.repo', 'mirrors.aliyun.com'):
+        s_log.append('--> Curl Aliyun repo.')
+    else:
+        e_log.append('--> Curl Aliyum repo E.')
+        check_call([
+            'cp', '/etc/yum.repos.d/CentOS-Base.repo.bak',
+            '/etc/yum.repos.d/CentOS-Base.repo'
+        ])
+
+    check_call(['yum', 'makecache'])
 
     # install base tools
-    p = Popen(
+    check_call(
         "yum groupinstall -y 'Development Tools' && yum install -y gcc glibc gcc-c++ make net-tools telnet ntpdate tree wget curl vim mtr bash-completion git yum-utils deltarpm",
-        shell=True,
-        stderr=PIPE)
-    flag = p.communicate()[1].decode('utf-8')
-    if flag:
-        e_log.append(flag)
+        shell=True)
+
     s_log.append('--> Install base tools success.')
 
 
@@ -141,7 +150,7 @@ def set_host(hostname):
 
     """
     if hostname:
-        run(['hostnamectl', 'set-hostname', hostname])
+        check_call(['hostnamectl', 'set-hostname', hostname])
         s_log.append('--> Hostname is set to {}'.format(hostname))
 
 
@@ -152,11 +161,14 @@ def add_user(user):
     if in_file('/etc/passwd', user):
         e_log.append('--> User: {} duplicate.'.format(user))
         return
-    run(['useradd', user])
-    run("echo '!QAZ2wsx' | passwd --stdin {}".format(user), shell=True)
-    run(['usermod', '-aG', 'wheel', user])
-    s_log.append("--> User created !!!\nuser: {}\npasswd: {}".format(
-        user, '!QAZ2wsx'))
+    check_call(['useradd', user])
+    check_call("echo '!QAZ2wsx' | passwd --stdin {}".format(user), shell=True)
+    check_call(['usermod', '-aG', 'wheel', user])
+    if in_file('/etc/passwd', user):
+        s_log.append("--> User created !!!\nuser: {}\npasswd: {}".format(
+            user, '!QAZ2wsx'))
+    else:
+        e_log.append("--> User create E.")
 
 
 def ssh_conf():
@@ -172,8 +184,14 @@ def ssh_conf():
                    'PermitEmptyPasswords no')
     simple_replace('/etc/ssh/sshd_config', '#PubkeyAuthentication yes',
                    'PubkeyAuthentication yes')
-    run(['systemctl', 'restart', 'sshd'])
-    s_log.append("--> Increase sshd service security")
+    check_call(['systemctl', 'restart', 'sshd'])
+    if in_file('/etc/ssh/sshd_config', 'GSSAPIAuthentication no') and in_file(
+            '/etc/ssh/sshd_config', 'PermitRootLogin no') and in_file(
+                '/etc/ssh/sshd_config', 'PermitEmptyPasswords no') and in_file(
+                    '/etc/ssh/sshd_config', 'PubkeyAuthentication yes'):
+        s_log.append("--> Increase sshd service security")
+    else:
+        e_log.append('--> Increase sshd service security E.')
 
 
 def install_py3():
@@ -187,7 +205,11 @@ def install_py3():
         if 'python3' in i:
             e_log.append('--> Already install python3.')
             return
-    run(['bash', 'py3_install.sh'])
+    check_call(['bash', 'py3_install.sh'])
+    for i in os.listdir('/usr/bin'):
+        if 'python3' in i:
+            s_log.append('--> Install python3 success.')
+    e_log.append('--> Install python3 E.')
 
 
 def install_docker(user=''):
@@ -198,7 +220,7 @@ def install_docker(user=''):
         e_log.append('--> Already install docker.')
         return
 
-    run('yum remove -y docker docker-client \
+    check_call('yum remove -y docker docker-client \
                   docker-client-latest \
                   docker-common \
                   docker-latest \
@@ -207,39 +229,42 @@ def install_docker(user=''):
                   docker-selinux \
                   docker-engine-selinux \
                   docker-engine',
-        shell=True)
+               shell=True)
 
-    p = Popen('yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo && yum makecache fast && sudo yum -y install docker-ce',
-              shell=True,
-              stderr=PIPE)
-    flag = p.communicate()[1].decode('utf-8')
-    if flag:
-        e_log.append(flag)
+    check_call(
+        'yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo && yum makecache fast && sudo yum -y install docker-ce',
+        shell=True)
 
     if not os.path.isdir('/etc/docker'):
         os.mkdir('/etc/docker')
-    run(['cp', './sources/docker_daemon.json', '/etc/docker/daemon.json'])
+    call(
+        ['cp', './sources/docker_daemon.json', '/etc/docker/daemon.json'])
     if user:
-        run(['usermod', '-aG', 'docker', user])
+        check_call(['usermod', '-aG', 'docker', user])
 
-    run('systemctl daemon-reload && systemctl enable docker && systemctl start docker',
+    call(
+        'systemctl daemon-reload && systemctl enable docker && systemctl start docker',
         shell=True)
 
-    p = Popen(['docker', 'run', 'hello-world'], stderr=PIPE)
-    flag = p.communicate()[1].decode('utf-8')
-    if flag:
-        e_log.append(flag)
+    p = call(['docker', 'check_call', 'hello-world'], stderr=PIPE)
+    if not p:
+        s_log.append('--> Install docker success.')
+    else:
+        e_log.append('--> Install docker E.')
 
     # install docker-compose
-    run(
+    call(
         'curl -L https://get.daocloud.io/docker/compose/releases/download/1.25.4/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose',
         shell=True)
-    run('chmod +x /usr/local/bin/docker-compose', shell=True)
-    run(
+    check_call('chmod +x /usr/local/bin/docker-compose', shell=True)
+    call(
         'curl -L https://raw.githubusercontent.com/docker/compose/1.24.1/contrib/completion/bash/docker-compose > /etc/bash_completion.d/docker-compose',
         shell=True)
-    s_log.append('--> Install docker-compose && completion success.')
-    s_log.append('--> Install docker success.')
+    if os.path.exists('/etc/bash_completion.d/docker-compose'
+                      ) and os.path.exists('/usr/local/bin/docker-compose'):
+        s_log.append('--> Install docker-compose && completion success.')
+    else:
+        e_log.append('--> Install docker-compose && completion E.')
 
 
 def uninstall_docker():
@@ -261,7 +286,7 @@ def uninstall_docker():
                   docker-selinux \
                   docker-engine-selinux \
                   docker-engine',
-          shell=True)
+         shell=True)
     if os.path.exists('/usr/local/bin/docker-compose'):
         os.remove('/usr/local/bin/docker-compose')
     if os.path.exists('/etc/bash_completion.d/docker-compose'):
@@ -333,5 +358,3 @@ if __name__ == '__main__':
     for item in s_log:
         print(item)
     print('*' * 30)
-    
-
