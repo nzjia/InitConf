@@ -63,26 +63,26 @@ def base_conf():
     """
 
     # +x rc.local
-    check_call(['chmod', '+x', '/etc/rc.d/rc.local'])
+    call(['chmod', '+x', '/etc/rc.d/rc.local'])
 
     # disable SELINUX
-    check_call(['setenforce', '0'])
+    call(['setenforce', '0'])
     simple_replace('/etc/selinux/config', 'SELINUX=enforcing',
                    'SELINUX=disabled')
 
     # disable firewalld、postfix
-    check_call('systemctl stop firewalld && systemctl disable firewalld',
+    call('systemctl stop firewalld && systemctl disable firewalld',
                shell=True)
-    check_call('systemctl stop postfix && systemctl disable postfix',
+    call('systemctl stop postfix && systemctl disable postfix',
                shell=True)
     s_log.append('--> Disable firewalld、postfix')
 
     # enable ipv4 forward
-    check_call("sed -ie '/net.ipv4.ip_forward = [01]/d' /etc/sysctl.conf",
+    call("sed -ie '/net.ipv4.ip_forward = [01]/d' /etc/sysctl.conf",
                shell=True)
-    check_call("echo -e 'net.ipv4.ip_forward = 1' >> /etc/sysctl.conf",
+    call("echo -e 'net.ipv4.ip_forward = 1' >> /etc/sysctl.conf",
                shell=True)
-    check_call(['/sbin/sysctl', '-p'])
+    call(['/sbin/sysctl', '-p'])
 
     # check
     if oct(os.stat('/etc/rc.d/rc.local').st_mode)[-1] in '751':
@@ -130,7 +130,7 @@ def yum_conf():
         s_log.append('--> Curl Aliyun repo.')
     else:
         e_log.append('--> Curl Aliyum repo E.')
-        check_call([
+        call([
             'cp', '/etc/yum.repos.d/CentOS-Base.repo.bak',
             '/etc/yum.repos.d/CentOS-Base.repo'
         ])
@@ -138,7 +138,7 @@ def yum_conf():
     check_call(['yum', 'makecache'])
 
     # install base tools
-    check_call(
+    call(
         "yum groupinstall -y 'Development Tools' && yum install -y gcc glibc gcc-c++ make net-tools telnet ntpdate tree wget curl vim mtr bash-completion git yum-utils deltarpm",
         shell=True)
 
@@ -150,8 +150,11 @@ def set_host(hostname):
 
     """
     if hostname:
-        check_call(['hostnamectl', 'set-hostname', hostname])
-        s_log.append('--> Hostname is set to {}'.format(hostname))
+        p = call(['hostnamectl', 'set-hostname', hostname])
+        if not p:
+            s_log.append('--> Hostname is set to {}'.format(hostname))
+        else:
+            e_log.append('--> Hostname set E.')
 
 
 def add_user(user):
@@ -205,7 +208,7 @@ def install_py3():
         if 'python3' in i:
             e_log.append('--> Already install python3.')
             return
-    check_call(['bash', 'py3_install.sh'])
+    call(['bash', 'py3_install.sh'])
     for i in os.listdir('/usr/bin'):
         if 'python3' in i:
             s_log.append('--> Install python3 success.')
@@ -220,7 +223,7 @@ def install_docker(user=''):
         e_log.append('--> Already install docker.')
         return
 
-    check_call('yum remove -y docker docker-client \
+    call('yum remove -y docker docker-client \
                   docker-client-latest \
                   docker-common \
                   docker-latest \
@@ -231,7 +234,7 @@ def install_docker(user=''):
                   docker-engine',
                shell=True)
 
-    check_call(
+    call(
         'yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo && yum makecache fast && sudo yum -y install docker-ce',
         shell=True)
 
@@ -251,6 +254,7 @@ def install_docker(user=''):
         s_log.append('--> Install docker success.')
     else:
         e_log.append('--> Install docker E.')
+        return
 
     # install docker-compose
     call(
